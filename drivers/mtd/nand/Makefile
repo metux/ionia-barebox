@@ -63,11 +63,12 @@ obj-$(CONFIG_NAND_PXA3XX) += pxa3xx_nand.o
 obj-$(CONFIG_NAND_S3C2410) += s3c2410_nand.o
 obj-$(CONFIG_NAND_SPEAR) += spr_nand.o
 obj-$(CONFIG_TEGRA_NAND) += tegra_nand.o
-obj-$(CONFIG_NAND_OMAP_GPMC) += omap_gpmc.o
+obj-$(CONFIG_NAND_OMAP_GPMC) += omap_bch_decoder.o omap_gpmc.o omap_bch_soft.o
 obj-$(CONFIG_NAND_OMAP_ELM) += omap_elm.o
 obj-$(CONFIG_NAND_PLAT) += nand_plat.o
 obj-$(CONFIG_NAND_SUNXI) += sunxi_nand.o
 obj-$(CONFIG_NAND_ZYNQ) += zynq_nand.o
+obj-$(CONFIG_NAND_TI81XX) += ti81xx_nand.o
 
 else  # minimal SPL drivers
 

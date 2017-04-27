@@ -694,6 +694,10 @@ libs-y += test/dm/
 libs-$(CONFIG_UT_ENV) += test/env/
 libs-$(CONFIG_UT_OVERLAY) += test/overlay/
 
+ifeq ($(SOC),ti81xx)
+libs-y += $(CPUDIR)/omap-common/libomap-common.o
+endif
+
 libs-y += $(if $(BOARDDIR),board/$(BOARDDIR)/)
 
 libs-y := $(sort $(libs-y))
@@ -1477,6 +1481,45 @@ mrproper: clean $(mrproper-dirs)
 	$(call cmd,rmdirs)
 	$(call cmd,rmfiles)
 	@rm -f arch/*/include/asm/arch
+
+ti8168_evm_config	\
+ti8168_evm_config_nand	\
+ti8168_evm_config_nor	\
+ti8168_evm_config_spi	\
+ti8168_evm_min_ocmc	\
+ti8168_evm_min_sd:	unconfig
+	@mkdir -p $(obj)include
+	@echo "#define CONFIG_TI81XX"	>>$(obj)include/config.h
+	@echo "#define CONFIG_TI816X"	>>$(obj)include/config.h
+	@if [ "$(findstring _nand,$@)" ] ; then \
+		echo "#define CONFIG_SYS_NO_FLASH"    >>$(obj)include/config.h ; \
+		echo "#define CONFIG_NAND_ENV"    >>$(obj)include/config.h ; \
+		echo "Setting up TI8168 NAND build with ENV in NAND..." ; \
+	elif [ "$(findstring _nor,$@)" ] ; then \
+		echo "#define CONFIG_NOR"    >>$(obj)include/config.h ; \
+		echo "#define CONFIG_NOR_BOOT"	>>$(obj)include/config.h ; \
+		echo "Setting up TI8168 NOR build with ENV in NOR..." ; \
+	elif [ "$(findstring _spi,$@)" ] ; then \
+		echo "#define CONFIG_SYS_NO_FLASH"    >>$(obj)include/config.h ; \
+		echo "#define CONFIG_SPI_ENV"    >>$(obj)include/config.h ; \
+		echo "#define CONFIG_TI81XX_SPI_BOOT"	>>$(obj)include/config.h ; \
+		echo "Setting up TI8168 SPI build with ENV in SPI..." ; \
+	elif [ "$(findstring _sd,$@)" ] ; then \
+		echo "#define CONFIG_SYS_NO_FLASH"    >>$(obj)include/config.h ; \
+		echo "#define CONFIG_SD_BOOT"    >>$(obj)include/config.h ; \
+		echo "TI_IMAGE = u-boot.min.sd" >>$(obj)board/ti/ti8168/config.tmp; \
+		echo "Setting up TI8168 SD boot minimal build..." ; \
+	elif [ "$(findstring _ocmc,$@)" ] ; then \
+		echo "#define CONFIG_SYS_NO_FLASH"    >>$(obj)include/config.h ; \
+		echo "#define CONFIG_MINIMAL"    >>$(obj)include/config.h ; \
+		echo "CONFIG_SYS_TEXT_BASE = 0x40410000" >>$(obj)board/ti/ti8168/config.tmp; \
+		echo "Setting up TI8168 minimal build..." ; \
+	else	\
+		echo "#define CONFIG_SYS_NO_FLASH"    >>$(obj)include/config.h ; \
+		echo "#define CONFIG_NAND_ENV"    >>$(obj)include/config.h ; \
+		echo "Setting up TI8168 default build with NAND..." ; \
+	fi;
+	@$(MKCONFIG) -a ti8168_evm arm armv7 ti8168 ti ti81xx
 
 # distclean
 #

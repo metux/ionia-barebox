@@ -20,6 +20,10 @@ endif
 endif
 obj-y	+= utils.o
 
+ifneq ($(CONFIG_AM335X)$(CONFIG_OMAP),)
+obj-y	+= gpio.o
+endif
+
 ifneq ($(CONFIG_OMAP44XX)$(CONFIG_OMAP54XX),)
 obj-y	+= hwinit-common.o
 obj-y	+= clocks-common.o

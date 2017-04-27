@@ -70,6 +70,8 @@ struct ctrl_id {
 #define GPMC_BASE		(OMAP34XX_GPMC_BASE)
 #define GPMC_CONFIG_CS0		0x60
 #define GPMC_CONFIG_CS0_BASE	(GPMC_BASE + GPMC_CONFIG_CS0)
+#define GPMC_CONFIG_CS1_BASE	(GPMC_BASE + GPMC_CONFIG_CS0 + (0x30 * 1))
+#define GPMC_CONFIG_CS2_BASE	(GPMC_BASE + GPMC_CONFIG_CS0 + (0x30 * 2))
 
 #ifndef __KERNEL_STRICT_NAMES
 #ifdef __ASSEMBLY__
@@ -150,6 +152,7 @@ struct sdrc {
 /* EMIF4 */
 typedef struct emif4 {
 	unsigned int emif_mod_id_rev;
+	unsigned int mod_id;
 	unsigned int sdram_sts;
 	unsigned int sdram_config;
 	unsigned int res1;

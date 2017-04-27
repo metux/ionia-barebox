@@ -5,7 +5,6 @@
 #
 # Normal rules
 #
-.*
 *.o
 *.o.*
 *.a
@@ -20,6 +19,8 @@
 *.bin
 *.patch
 *.cfgtmp
+*.depend
+*.cmd
 
 # host programs on Cygwin
 *.exe

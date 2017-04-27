@@ -1,0 +1,12 @@
+if TARGET_KC1
+
+config SYS_BOARD
+	default "i10x"
+
+config SYS_VENDOR
+	default "duagon"
+
+config SYS_CONFIG_NAME
+	default "duagon_i10x"
+
+endif

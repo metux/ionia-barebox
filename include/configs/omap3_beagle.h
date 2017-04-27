@@ -219,14 +219,11 @@
 	"loadfdt=run validatefdt; load mmc ${bootpart} ${fdtaddr} ${bootdir}/${fdtfile}\0" \
 	"mmcboot=echo Booting from mmc ...; " \
 		"run mmcargs; " \
-		"bootm ${loadaddr}\0" \
-	"mmcbootz=echo Booting with DT from mmc${mmcdev} ...; " \
-		"run mmcargs; " \
-		"bootz ${loadaddr} - ${fdtaddr}\0" \
+		"bootm ${kloadaddr}\0" \
 	"nandboot=echo Booting from nand ...; " \
 		"run nandargs; " \
-		"nand read ${loadaddr} 280000 400000; " \
-		"bootm ${loadaddr}\0" \
+		"nand read ${kloadaddr} 280000 400000; " \
+		"bootm ${kloadaddr}\0" \
 	"ramboot=echo Booting from ramdisk ...; " \
 		"run ramargs; " \
 		"bootm ${loadaddr}\0" \

@@ -40,6 +40,11 @@
 #include <linux/mtd/nand.h>
 #include <linux/mtd/nand_ecc.h>
 #include <linux/mtd/nand_bch.h>
+
+#if !defined(CONFIG_TI81XX)
+#include <asm/arch/omap_bch_soft.h>
+#endif
+
 #ifdef CONFIG_MTD_PARTITIONS
 #include <linux/mtd/partitions.h>
 #endif
@@ -3614,6 +3619,55 @@ static struct nand_flash_dev *nand_get_flash_type(struct mtd_info *mtd,
 	 */
 	chip->cmdfunc(mtd, NAND_CMD_RESET, -1, -1);
 
+	/* Send SET FEATURE Timing mode settings command for reading timing mode setting */
+  //printf ("sets timing_mode: %02x\n", 3);
+    chip->cmdfunc(mtd, 0xef, 0x01, -1);
+    chip->write_buf(mtd, (uint8_t *)(&debug_buf), 4);
+
+	/* Send READOUT Timing mode settings command for reading timing mode setting */
+    chip->cmdfunc(mtd, 0xee, 0x01, -1);
+    debug_value = chip->read_byte(mtd);
+    printf ("nand_base.c: NAND timing_mode P1 set: %02x\n", debug_value);
+    debug_value = chip->read_byte(mtd);
+  //printf ("debug_timing_mode P2: %02x\n", debug_value);
+    debug_value = chip->read_byte(mtd);
+  //printf ("debug_timing_mode P3: %02x\n", debug_value);
+    debug_value = chip->read_byte(mtd);
+  //printf ("debug_timing_mode P4: %02x\n", debug_value);
+
+	/* Send READOUT Drive strength settings command for reading timing mode setting */
+    chip->cmdfunc(mtd, 0xee, 0x10, -1);
+    debug_value = chip->read_byte(mtd);
+  //printf ("debug_drive strength P1: %02x\n",debug_value);
+    debug_value = chip->read_byte(mtd);
+  //printf ("debug_drive strength P2: %02x\n",debug_value);
+    debug_value = chip->read_byte(mtd);
+  //printf ("debug_drive strength P3: %02x\n",debug_value);
+    debug_value = chip->read_byte(mtd);
+  //printf ("debug_drive strength P4: %02x\n",debug_value);
+
+	/* Send READOUT Programmable R/B# Pull-Down Strength settings command for reading timing mode setting */
+    chip->cmdfunc(mtd, 0xee, 0x81, -1);
+    debug_value = chip->read_byte(mtd);
+  //printf ("debug_pull-down strength P1: %02x\n",debug_value);
+    debug_value = chip->read_byte(mtd);
+  //printf ("debug_pull-down strength P2: %02x\n",debug_value);
+    debug_value = chip->read_byte(mtd);
+  //printf ("debug_pull-down strength P3: %02x\n",debug_value);
+    debug_value = chip->read_byte(mtd);
+  //printf ("debug_pull-down strength P4: %02x\n",debug_value);
+
+	/* Send READOUT Array op mode settings command for reading timing mode setting */
+    chip->cmdfunc(mtd, 0xee, 0x90, -1);
+    debug_value = chip->read_byte(mtd);
+  //printf ("Array op mode P1: %02x\n",debug_value);
+    debug_value = chip->read_byte(mtd);
+  //printf ("Array op mode P2: %02x\n",debug_value);
+    debug_value = chip->read_byte(mtd);
+  //printf ("Array op mode P3: %02x\n",debug_value);
+    debug_value = chip->read_byte(mtd);
+  //printf ("Array op mode P4: %02x\n",debug_value);
+
 	/* Send the command for reading device ID */
 	chip->cmdfunc(mtd, NAND_CMD_READID, 0x00, -1);
 
@@ -3939,6 +3993,7 @@ static bool nand_ecc_strength_good(struct mtd_info *mtd)
  */
 int nand_scan_tail(struct mtd_info *mtd)
 {
+	uint32_t dev_width;
 	int i;
 	struct nand_chip *chip = mtd_to_nand(mtd);
 	struct nand_ecc_ctrl *ecc = &chip->ecc;
@@ -3958,6 +4013,8 @@ int nand_scan_tail(struct mtd_info *mtd)
 
 	/* Set the internal oob buffer location, just after the page data */
 	chip->oob_poi = chip->buffers->databuf + mtd->writesize;
+
+	dev_width = (chip->options & NAND_BUSWIDTH_16) >> 1;
 
 	/*
 	 * If no default placement scheme is given, select an appropriate one.

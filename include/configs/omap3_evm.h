@@ -28,6 +28,8 @@
 #define CONFIG_CMD_JFFS2
 
 #define CONFIG_CMD_NAND
+#define CONFIG_CMD_DHCP
+#define CONFIG_CMD_PING
 
 /* ----------------------------------------------------------------------------
  * Supported U-Boot features
@@ -337,6 +339,26 @@
 #define CONFIG_SYS_SPL_MALLOC_START	0x80208000
 #define CONFIG_SYS_SPL_MALLOC_SIZE	0x100000
 
+/* NAND SPL */
+#define CONFIG_SPL_NAND_SIMPLE
+#define CONFIG_SPL_NAND_SUPPORT
+#define CONFIG_SYS_NAND_5_ADDR_CYCLE
+#define CONFIG_SYS_NAND_PAGE_COUNT	64
+#define CONFIG_SYS_NAND_PAGE_SIZE	2048
+#define CONFIG_SYS_NAND_OOBSIZE		64
+#define CONFIG_SYS_NAND_BLOCK_SIZE	(128*1024)
+#define CONFIG_SYS_NAND_BAD_BLOCK_POS	0
+#define CONFIG_SYS_NAND_ECCPOS		{2, 3, 4, 5, 6, 7, 8, 9,\
+						10, 11, 12, 13}
+#define CONFIG_SYS_NAND_ECCSIZE		512
+#define CONFIG_SYS_NAND_ECCBYTES	3
+#define CONFIG_SYS_NAND_ECCSTEPS	(CONFIG_SYS_NAND_PAGE_SIZE / \
+						CONFIG_SYS_NAND_ECCSIZE)
+#define CONFIG_SYS_NAND_ECCTOTAL	(CONFIG_SYS_NAND_ECCBYTES * \
+						CONFIG_SYS_NAND_ECCSTEPS)
+#define CONFIG_SYS_NAND_U_BOOT_START	CONFIG_SYS_TEXT_BASE
+#define CONFIG_SYS_NAND_U_BOOT_OFFS	0x80000
+
 /* -----------------------------------------------------------------------------
  * Default environment
  * -----------------------------------------------------------------------------
@@ -344,32 +366,48 @@
 
 #define CONFIG_EXTRA_ENV_SETTINGS \
 	"loadaddr=0x82000000\0" \
-	"usbtty=cdc_acm\0" \
-	"mmcdev=0\0" \
 	"console=ttyO0,115200n8\0" \
+	"usbtty=cdc_acm\0" \
+	"kloadaddr=0x80007fc0\0" \
+	"mmcdev=0\0" \
+	"optargs=\0" \
 	"mmcargs=setenv bootargs console=${console} " \
+		"${optargs} " \
 		"root=/dev/mmcblk0p2 rw " \
 		"rootfstype=ext3 rootwait\0" \
 	"nandargs=setenv bootargs console=${console} " \
+		"${optargs} " \
 		"root=/dev/mtdblock4 rw " \
 		"rootfstype=jffs2\0" \
 	"loadbootscript=fatload mmc ${mmcdev} ${loadaddr} boot.scr\0" \
 	"bootscript=echo Running bootscript from mmc ...; " \
 		"source ${loadaddr}\0" \
-	"loaduimage=fatload mmc ${mmcdev} ${loadaddr} uImage\0" \
+	"bootenv=uEnv.txt\0" \
+	"loadbootenv=fatload mmc ${mmcdev} ${loadaddr} ${bootenv}\0" \
+	"importbootenv=echo Importing environment from mmc ...; " \
+		"env import -t $loadaddr $filesize\0" \
+	"loaduimage=fatload mmc ${mmcdev} ${kloadaddr} uImage\0" \
 	"mmcboot=echo Booting from mmc ...; " \
 		"run mmcargs; " \
-		"bootm ${loadaddr}\0" \
+		"bootm ${kloadaddr}\0" \
 	"nandboot=echo Booting from nand ...; " \
 		"run nandargs; " \
-		"onenand read ${loadaddr} 280000 400000; " \
-		"bootm ${loadaddr}\0" \
+		"nand read ${kloadaddr} 280000 400000; " \
+		"bootm ${kloadaddr}\0" \
 
 #define CONFIG_BOOTCOMMAND \
 	"mmc dev ${mmcdev}; if mmc rescan; then " \
 		"if run loadbootscript; then " \
 			"run bootscript; " \
 		"else " \
+			"if run loadbootenv; then " \
+				"echo Loaded environment from ${bootenv};" \
+				"run importbootenv;" \
+			"fi;" \
+			"if test -n $uenvcmd; then " \
+				"echo Running uenvcmd ...;" \
+				"run uenvcmd;" \
+			"fi;" \
 			"if run loaduimage; then " \
 				"run mmcboot; " \
 			"else run nandboot; " \

@@ -123,6 +123,16 @@
 #define CONFIG_CMD_UBIFS		/* Read-only UBI volume operations */
 #define CONFIG_RBTREE			/* required by CONFIG_CMD_UBI */
 #define CONFIG_LZO			/* required by CONFIG_CMD_UBIFS */
+
+#define CONFIG_HARD_I2C			1
+#define CONFIG_SYS_I2C_SPEED		100000
+#define CONFIG_SYS_I2C_SLAVE		1
+
+#define CONFIG_CMD_NET
+
+/*
+ * Board NAND Info.
+ */
 #define CONFIG_SYS_NAND_ADDR		NAND_BASE	/* physical address */
 							/* to access nand */
 #define CONFIG_SYS_NAND_BASE		NAND_BASE	/* physical address */
@@ -175,12 +185,16 @@
 #define MTDPARTS_DEFAULT
 #endif /* CONFIG_NAND */
 
+#define CONFIG_SYS_64BIT_VSPRINTF		/* needed for nand_util.c */
+
 /* Environment information */
 
 #define CONFIG_BOOTFILE		"uImage"
 
-#define CONFIG_EXTRA_ENV_SETTINGS \
+/* Basic 'extra' env variables */
+#define EXTRA_ENV_SETTINGS \
 	"loadaddr=0x82000000\0" \
+	"kloadaddr=0x80007fc0\0" \
 	"console=ttyO2,115200n8\0" \
 	"fdtfile=am3517-evm.dtb\0" \
 	"fdtaddr=0x82C00000\0" \
@@ -211,35 +225,30 @@
 		"env import -t ${loadaddr} ${filesize}\0" \
 	"bootscript=echo Running bootscript from mmc ...; " \
 		"source ${loadaddr}\0" \
-	"loadimage=fatload mmc ${mmcdev}:${mmcpart} ${loadaddr} ${bootfile}\0" \
-	"loadfdt=fatload mmc ${mmcdev}:${mmcpart} ${fdtaddr} ${fdtfile}\0" \
+	"loaduimage=fatload mmc ${mmcdev} ${kloadaddr} uImage\0" \
 	"mmcboot=echo Booting from mmc ...; " \
 		"run mmcargs; " \
-		"bootz ${loadaddr} - ${fdtaddr}\0" \
-	"nandboot=echo Booting from nand ...; " \
-		"run nandargs; " \
-		"nand read ${loadaddr} 2a0000 800000; " \
-		"nand read ${fdtaddr} aa0000 80000; " \
-		"bootm ${loadaddr} - ${fdtaddr}\0" \
+		"bootm ${kloadaddr}; \0" \
 
 #define CONFIG_BOOTCOMMAND \
 	"mmc dev ${mmcdev}; if mmc rescan; then " \
-		"echo SD/MMC found on device $mmcdev; " \
-		"if run loadbootenv; then " \
-			"run importbootenv; " \
+		"if run loadbootscript; then " \
+			"run bootscript; " \
+		"else " \
+			"if run loadbootenv; then " \
+				"echo Loaded environment from ${bootenv};" \
+				"run importbootenv;" \
+			"fi;" \
+			"if test -n $uenvcmd; then " \
+				"echo Running uenvcmd ...;" \
+				"run uenvcmd;" \
+			"fi;" \
+			"if run loaduimage; then " \
+				"run mmcboot; " \
+			"else run " FLASHBOOT "; " \
+			"fi; " \
 		"fi; " \
-		"echo Checking if uenvcmd is set ...; " \
-		"if test -n $uenvcmd; then " \
-			"echo Running uenvcmd ...; " \
-			"run uenvcmd; " \
-		"fi; " \
-		"echo Running default loadimage ...; " \
-		"setenv bootfile zImage; " \
-		"if run loadimage; then " \
-			"run loadfdt; " \
-			"run mmcboot; " \
-		"fi; " \
-	"else run nandboot; fi"
+	"else run " FLASHBOOT "; fi"
 
 /* Miscellaneous configurable options */
 #define CONFIG_AUTO_COMPLETE
@@ -296,8 +305,37 @@
 #define CONFIG_SYS_FLASH_BASE		NAND_BASE
 #endif
 
+/* Configure the PISMO */
+#define PISMO1_NAND_SIZE		GPMC_SIZE_128M
+#define PISMO1_ONEN_SIZE		GPMC_SIZE_128M
+
+/* General */
+#define CONFIG_SYS_MAX_FLASH_SECT	512	/* max sectors on one chip */
+
+/*
+ * CFI FLASH driver setup.  Please note that, first 4 blocks are of 32K and
+ * rest all blocks are 128K.
+ */
+#if defined (CONFIG_SYS_HAS_NORFLASH)
+#define CONFIG_CMD_FLASH			/* flinfo, erase, protect */
+#define CONFIG_SYS_FLASH_BASE		DEBUG_BASE
+#define CONFIG_SYS_FLASH_CFI			/* use CFI geometry data */
+#define CONFIG_FLASH_CFI_DRIVER
+#define CONFIG_SYS_FLASH_USE_BUFFER_WRITE 	/* ~10x faster writes */
+#define CONFIG_SYS_FLASH_PROTECTION		/* hardware sector protection */
+#define CONFIG_SYS_FLASH_EMPTY_INFO		/* flinfo 'E' for empty */
+#define CONFIG_SYS_FLASH_BANKS_LIST	{CONFIG_SYS_FLASH_BASE}
+#define CONFIG_SYS_MAX_FLASH_BANKS	1	/* max number of flash banks */
+#define CONFIG_SYS_FLASH_CFI_WIDTH	2
+#define PHYS_FLASH_SIZE			(8 << 20)
 /* Monitor at start of flash */
 #define CONFIG_SYS_MONITOR_BASE		CONFIG_SYS_FLASH_BASE
+#else
+/* No support for CFI flash. */
+#undef CONFIG_CMD_FLASH
+#define CONFIG_SYS_NO_FLASH
+#define CONFIG_SYS_MAX_FLASH_BANKS	0
+#endif
 
 #define CONFIG_SYS_ENV_SECT_SIZE	(128 << 10)	/* 128 KiB */
 #define CONFIG_ENV_SIZE			CONFIG_SYS_ENV_SECT_SIZE
@@ -305,6 +343,91 @@
 #define CONFIG_ENV_OFFSET		SMNAND_ENV_OFFSET
 #define CONFIG_ENV_ADDR			SMNAND_ENV_OFFSET
 #define CONFIG_ENV_IS_IN_NAND
+
+#define CONFIG_NAND_OMAP_GPMC
+#define CONFIG_ENV_IS_IN_NAND		1
+#define GPMC_NAND_ECC_LP_x16_LAYOUT	1
+
+/* timeout values are in ticks */
+#define CONFIG_SYS_FLASH_ERASE_TOUT	(100 * CONFIG_SYS_HZ)
+#define CONFIG_SYS_FLASH_WRITE_TOUT	(100 * CONFIG_SYS_HZ)
+
+/* Flash banks JFFS2 should use */
+#define CONFIG_SYS_MAX_MTD_BANKS	(CONFIG_SYS_MAX_FLASH_BANKS + \
+					CONFIG_SYS_MAX_NAND_DEVICE)
+#define CONFIG_SYS_JFFS2_MEM_NAND
+/* use flash_info[2] */
+#define CONFIG_SYS_JFFS2_FIRST_BANK	CONFIG_SYS_MAX_FLASH_BANKS
+#define CONFIG_SYS_JFFS2_NUM_BANKS	1
+
+/* Environment location */
+#ifdef CONFIG_SYS_BOOT_NORFLASH
+#define CONFIG_ENV_IS_IN_FLASH
+#define CONFIG_ENV_OFFSET		0x80000	/* environment starts here */
+/* NOR related env and boot */
+#define FLASHBOOT			"norboot"
+#define CONFIG_EXTRA_ENV_SETTINGS	EXTRA_ENV_SETTINGS \
+	"norargs=run bootargs_defaults; " \
+		"setenv bootargs ${bootargs} " \
+		"root=/dev/mtdblock3 rw " \
+		"rootfstype=jffs2\0" \
+	"norboot=echo Booting from nor ...; " \
+		"run norargs; " \
+		"bootm 0x080A0000; \0"
+/* JFFS2 */
+#define CONFIG_JFFS2_DEV		"nor0"
+/* start of jffs2 partition */
+#define CONFIG_JFFS2_PART_OFFSET	(CONFIG_SYS_FLASH_BASE + 0x3A0000)
+#define CONFIG_JFFS2_PART_SIZE		0x460000	/* sz of jffs2 part */
+#else
+/* ENV resides in NAND */
+#define CONFIG_ENV_IS_IN_NAND
+#define SMNAND_ENV_OFFSET		0x260000 /* environment starts here */
+#define CONFIG_ENV_OFFSET		SMNAND_ENV_OFFSET
+/* NAND related env and boot */
+#define FLASHBOOT			"nandboot"
+#define CONFIG_EXTRA_ENV_SETTINGS	EXTRA_ENV_SETTINGS \
+	"nandargs=run bootargs_defaults; " \
+		"setenv bootargs ${bootargs} " \
+		"root=/dev/mtdblock4 rw " \
+		"rootfstype=jffs2\0" \
+	"nandboot=echo Booting from nand ...; " \
+		"run nandargs; " \
+		"nand read ${kloadaddr} 280000 400000; " \
+		"bootm ${kloadaddr}; \0"
+/* JFFS2 */
+#define CONFIG_JFFS2_NAND
+/* nand device jffs2 lives on */
+#define CONFIG_JFFS2_DEV		"nand0"
+/* start of jffs2 partition */
+#define CONFIG_JFFS2_PART_OFFSET	0x680000
+#define CONFIG_JFFS2_PART_SIZE		0xf980000	/* sz of jffs2 part */
+#endif
+
+/*-----------------------------------------------------
+ * ethernet support for AM3517 EVM
+ *------------------------------------------------
+ */
+#if defined(CONFIG_CMD_NET)
+#define CONFIG_SYS_DCACHE_OFF		/* Driver not D-CACHE safe */
+#define CONFIG_DRIVER_TI_EMAC
+#define CONFIG_DRIVER_TI_EMAC_USE_RMII
+#define CONFIG_MII
+#define CONFIG_EMAC_MDIO_PHY_NUM	0
+#define CONFIG_BOOTP_DEFAULT
+#define CONFIG_BOOTP_DNS
+#define CONFIG_BOOTP_DNS2
+#define CONFIG_BOOTP_SEND_HOSTNAME
+#define CONFIG_NET_RETRY_COUNT		10
+#define CONFIG_NET_MULTI
+#endif
+
+#define CONFIG_SYS_SDRAM_BASE		PHYS_SDRAM_1
+#define CONFIG_SYS_INIT_RAM_ADDR	0x4020f800
+#define CONFIG_SYS_INIT_RAM_SIZE	0x800
+#define CONFIG_SYS_INIT_SP_ADDR		(CONFIG_SYS_INIT_RAM_ADDR + \
+					 CONFIG_SYS_INIT_RAM_SIZE - \
+					 GENERATED_GBL_DATA_SIZE)
 
 /* Defines for SPL */
 #define CONFIG_SPL_FRAMEWORK

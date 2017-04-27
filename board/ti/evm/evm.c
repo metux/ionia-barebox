@@ -24,6 +24,7 @@
 #include <asm/mach-types.h>
 #include <linux/mtd/nand.h>
 #include "evm.h"
+#include <twl4030.h>
 
 #define OMAP3EVM_GPIO_ETH_RST_GEN1		64
 #define OMAP3EVM_GPIO_ETH_RST_GEN2		7
@@ -161,6 +162,10 @@ int misc_init_r(void)
 #endif
 	omap_die_id_display();
 
+        if (get_cpu_family() == CPU_OMAP36XX) {
+   		twl4030_power_mpu_init();
+	        set_mpu_clk(1000);
+	}
 	return 0;
 }
 

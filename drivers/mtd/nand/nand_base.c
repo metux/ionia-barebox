@@ -44,6 +44,10 @@
 #include <linux/mtd/nand.h>
 #include <linux/mtd/nand_ecc.h>
 
+#if !defined(CONFIG_TI81XX)
+#include <asm/arch/omap_bch_soft.h>
+#endif
+
 #ifdef CONFIG_MTD_PARTITIONS
 #include <linux/mtd/partitions.h>
 #endif
@@ -213,7 +217,7 @@ static void nand_write_buf(struct mtd_info *mtd, const uint8_t *buf, int len)
  *
  * Default read function for 8bit buswith
  */
-static void nand_read_buf(struct mtd_info *mtd, uint8_t *buf, int len)
+void nand_read_buf(struct mtd_info *mtd, uint8_t *buf, int len)
 {
 	int i;
 	struct nand_chip *chip = mtd->priv;
@@ -269,7 +273,7 @@ static void nand_write_buf16(struct mtd_info *mtd, const uint8_t *buf, int len)
  *
  * Default read function for 16bit buswith
  */
-static void nand_read_buf16(struct mtd_info *mtd, uint8_t *buf, int len)
+void nand_read_buf16(struct mtd_info *mtd, uint8_t *buf, int len)
 {
 	int i;
 	struct nand_chip *chip = mtd->priv;
@@ -550,7 +554,7 @@ static void nand_command(struct mtd_info *mtd, unsigned int command,
 	}
 	/* Apply this short delay always to ensure that we do wait tWB in
 	 * any case on any machine. */
-	ndelay(100);
+	ndelay(300);
 
 	nand_wait_ready(mtd);
 }
@@ -673,7 +677,7 @@ static void nand_command_lp(struct mtd_info *mtd, unsigned int command,
 
 	/* Apply this short delay always to ensure that we do wait tWB in
 	 * any case on any machine. */
-	ndelay(100);
+	ndelay(300);
 
 	nand_wait_ready(mtd);
 }
@@ -2548,6 +2552,21 @@ static const struct nand_flash_dev *nand_get_flash_type(struct mtd_info *mtd,
 {
 	int ret, maf_idx;
 	int tmp_id, tmp_manf;
+    int debug_value = 0;
+    struct debug_buf_type
+    {
+        uint8_t P1;
+        uint8_t P2;
+        uint8_t P3;
+        uint8_t P4;
+    } debug_buf =
+    {
+        0x3,
+        0x0,
+        0x0,
+        0x0
+    };
+    
 
 	/* Select the device */
 	chip->select_chip(mtd, 0);
@@ -2558,6 +2577,55 @@ static const struct nand_flash_dev *nand_get_flash_type(struct mtd_info *mtd,
 	 */
 	chip->cmdfunc(mtd, NAND_CMD_RESET, -1, -1);
 
+	/* Send SET FEATURE Timing mode settings command for reading timing mode setting */
+  //printf ("sets timing_mode: %02x\n", 3);
+    chip->cmdfunc(mtd, 0xef, 0x01, -1);
+    chip->write_buf(mtd, (uint8_t *)(&debug_buf), 4);
+    
+	/* Send READOUT Timing mode settings command for reading timing mode setting */
+    chip->cmdfunc(mtd, 0xee, 0x01, -1);
+    debug_value = chip->read_byte(mtd);
+    printf ("nand_base.c: NAND timing_mode P1 set: %02x\n", debug_value);
+    debug_value = chip->read_byte(mtd);
+  //printf ("debug_timing_mode P2: %02x\n", debug_value);
+    debug_value = chip->read_byte(mtd);
+  //printf ("debug_timing_mode P3: %02x\n", debug_value);
+    debug_value = chip->read_byte(mtd);
+  //printf ("debug_timing_mode P4: %02x\n", debug_value);
+    
+	/* Send READOUT Drive strength settings command for reading timing mode setting */
+    chip->cmdfunc(mtd, 0xee, 0x10, -1);
+    debug_value = chip->read_byte(mtd);
+  //printf ("debug_drive strength P1: %02x\n",debug_value);
+    debug_value = chip->read_byte(mtd);
+  //printf ("debug_drive strength P2: %02x\n",debug_value);
+    debug_value = chip->read_byte(mtd);
+  //printf ("debug_drive strength P3: %02x\n",debug_value);
+    debug_value = chip->read_byte(mtd);
+  //printf ("debug_drive strength P4: %02x\n",debug_value);
+
+	/* Send READOUT Programmable R/B# Pull-Down Strength settings command for reading timing mode setting */
+    chip->cmdfunc(mtd, 0xee, 0x81, -1);
+    debug_value = chip->read_byte(mtd);
+  //printf ("debug_pull-down strength P1: %02x\n",debug_value);
+    debug_value = chip->read_byte(mtd);
+  //printf ("debug_pull-down strength P2: %02x\n",debug_value);
+    debug_value = chip->read_byte(mtd);
+  //printf ("debug_pull-down strength P3: %02x\n",debug_value);
+    debug_value = chip->read_byte(mtd);
+  //printf ("debug_pull-down strength P4: %02x\n",debug_value);
+
+	/* Send READOUT Array op mode settings command for reading timing mode setting */
+    chip->cmdfunc(mtd, 0xee, 0x90, -1);
+    debug_value = chip->read_byte(mtd);
+  //printf ("Array op mode P1: %02x\n",debug_value);
+    debug_value = chip->read_byte(mtd);
+  //printf ("Array op mode P2: %02x\n",debug_value);
+    debug_value = chip->read_byte(mtd);
+  //printf ("Array op mode P3: %02x\n",debug_value);
+    debug_value = chip->read_byte(mtd);
+  //printf ("Array op mode P4: %02x\n",debug_value);
+    
 	/* Send the command for reading device ID */
 	chip->cmdfunc(mtd, NAND_CMD_READID, 0x00, -1);
 
@@ -2749,6 +2817,7 @@ int nand_scan_ident(struct mtd_info *mtd, int maxchips,
  */
 int nand_scan_tail(struct mtd_info *mtd)
 {
+	uint32_t dev_width;
 	int i;
 	struct nand_chip *chip = mtd->priv;
 
@@ -2759,6 +2828,8 @@ int nand_scan_tail(struct mtd_info *mtd)
 
 	/* Set the internal oob buffer location, just after the page data */
 	chip->oob_poi = chip->buffers->databuf + mtd->writesize;
+
+	dev_width = (chip->options & NAND_BUSWIDTH_16) >> 1;
 
 	/*
 	 * If no default placement scheme is given, select an appropriate one
@@ -2863,6 +2934,47 @@ int nand_scan_tail(struct mtd_info *mtd)
 		chip->ecc.size = 256;
 		chip->ecc.bytes = 3;
 		break;
+
+#if !defined(CONFIG_TI81XX)
+	case NAND_ECC_4BIT_SOFT:
+        /* Use standard hwecc read page function */
+		if (!chip->ecc.read_page)
+			chip->ecc.read_page = nand_read_page_hwecc;
+		if (!chip->ecc.write_page)
+			chip->ecc.write_page = nand_write_page_hwecc;
+		if (!chip->ecc.read_oob)
+			chip->ecc.read_oob = nand_read_oob_std;
+		if (!chip->ecc.write_oob)
+			chip->ecc.write_oob = nand_write_oob_std;
+		chip->ecc.size = 2048;
+		chip->ecc.bytes = 28;
+		chip->ecc.hwctl = omap_enable_hwecc_bch4;
+                chip->ecc.calculate = omap_calculate_ecc_bch4;
+                chip->ecc.correct = omap_correct_data_bch4;
+                chip->ecc.layout = omap_get_ecc_layout_bch(dev_width, 4);
+		omap_hwecc_init_bch(chip);
+                break;
+
+	case NAND_ECC_8BIT_SOFT:
+        /* Use standard hwecc read page function */
+		if (!chip->ecc.read_page)
+			chip->ecc.read_page = nand_read_page_hwecc;
+		if (!chip->ecc.write_page)
+			chip->ecc.write_page = nand_write_page_hwecc;
+		if (!chip->ecc.read_oob)
+			chip->ecc.read_oob = nand_read_oob_std;
+		if (!chip->ecc.write_oob)
+			chip->ecc.write_oob = nand_write_oob_std;
+		chip->ecc.size = 2048;
+		chip->ecc.bytes = 52;
+		chip->ecc.hwctl = omap_enable_hwecc_bch8;
+                chip->ecc.calculate = omap_calculate_ecc_bch8;
+                chip->ecc.correct = omap_correct_data_bch8;
+                chip->ecc.layout = omap_get_ecc_layout_bch(dev_width, 8);
+		omap_hwecc_init_bch(chip);
+	        
+	        break;
+#endif
 
 	case NAND_ECC_NONE:
 		printk(KERN_WARNING "NAND_ECC_NONE selected by board driver. "

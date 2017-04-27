@@ -43,6 +43,12 @@ enum {
 #define SDRC_SHARING	0x00000100
 #define SDRC_MR_0_SDR	0x00000031
 
+/* optimized timings good for current shipping parts */
+#define SDP_3430_SDRC_RFR_CTRL_100MHz	0x0002da01
+#define SDP_3430_SDRC_RFR_CTRL_133MHz	0x0003de01 /* 7.8us/7.5ns - 50=0x3de */
+#define SDP_3430_SDRC_RFR_CTRL_165MHz	0x0004e201 /* 7.8us/6ns - 50=0x4e2 */
+#define SDP_3430_SDRC_RFR_CTRL_200MHz	0x0005e601 /* 7.8us/5ns - 50=0x5e6 */
+
 #define DLL_OFFSET		0
 #define DLL_WRITEDDRCLKX2DIS	1
 #define DLL_ENADLL		1
@@ -53,6 +59,44 @@ enum {
 /* rkw - need to find of 90/72 degree recommendation for speed like before */
 #define SDP_SDRC_DLLAB_CTRL	((DLL_ENADLL << 3) | \
 				(DLL_LOCKDLL << 2) | (DLL_DLLPHASE_90 << 1))
+
+/* Hynix part of AM/DM37xEVM (200MHz optimized)
+ *   ACTIMA
+ *	TDAL		= 6
+ *	TDPL (Twr)	= 3
+ *	TRRD		= 2
+ *	TRCD		= 4
+ *	TRP		= 3
+ *	TRAS		= 8
+ *	TRC		= 11
+ *	TRFC		= 18
+ *   ACTIMB
+ *	TWTR		= 2
+ *	TCKE		= 1
+ *	TXP		= 1
+ *	TXSR		= 28
+ */
+#define HYNIX_TDAL_200		6
+#define HYNIX_TDPL_200		3
+#define HYNIX_TRRD_200		2
+#define HYNIX_TRCD_200		4
+#define HYNIX_TRP_200		3
+#define HYNIX_TRAS_200		8
+#define HYNIX_TRC_200		11
+#define HYNIX_TRFC_200		18
+#define HYNIX_V_ACTIMA_200	((HYNIX_TRFC_200 << 27) | \
+		(HYNIX_TRC_200 << 22) | (HYNIX_TRAS_200 << 18) | \
+		(HYNIX_TRP_200 << 15) |  (HYNIX_TRCD_200 << 12) | \
+		(HYNIX_TRRD_200 << 9) |  (HYNIX_TDPL_200 << 6) | \
+		(HYNIX_TDAL_200))
+
+#define HYNIX_TWTR_200		2
+#define HYNIX_TCKE_200		1
+#define HYNIX_TXP_200		1
+#define HYNIX_XSR_200		28
+#define HYNIX_V_ACTIMB_200	(((HYNIX_TCKE_200 << 12) | \
+		(HYNIX_XSR_200 << 0)) |	(HYNIX_TXP_200 << 8) | \
+		(HYNIX_TWTR_200 << 16))
 
 /* Infineon part of 3430SDP (165MHz optimized) 6.06ns
  *   ACTIMA
@@ -128,6 +172,54 @@ enum {
 		(MICRON_XSR_165 << 0) | (MICRON_TXP_165 << 8) |	\
 		(MICRON_TWTR_165 << 16))
 
+#define MICRON_RAMTYPE_165		0x1
+#define MICRON_DDRTYPE_165		0x0
+#define MICRON_DEEPPD_165		0x1
+#define MICRON_B32NOT16_165		0x1
+#define MICRON_BANKALLOCATION_165	0x2
+#define MICRON_RAMSIZE_165		((PHYS_SDRAM_1_SIZE/(1024*1024))/2)
+#define MICRON_ADDRMUXLEGACY_165	0x1
+#define MICRON_CASWIDTH_165		0x5
+#define MICRON_RASWIDTH_165		0x2
+#define MICRON_LOCKSTATUS_165		0x0
+#define MICRON_V_MCFG_165		((MICRON_LOCKSTATUS_165 << 30) | \
+		(MICRON_RASWIDTH_165 << 24) | (MICRON_CASWIDTH_165 << 20) | \
+		(MICRON_ADDRMUXLEGACY_165 << 19) | (MICRON_RAMSIZE_165 << 8) | \
+		(MICRON_BANKALLOCATION_165 << 6) | \
+		(MICRON_B32NOT16_165 << 4) | (MICRON_DEEPPD_165 << 3) | \
+		(MICRON_DDRTYPE_165 << 2) | (MICRON_RAMTYPE_165))
+
+#define MICRON_BL_165			0x2
+#define MICRON_SIL_165			0x0
+#define MICRON_CASL_165			0x3
+#define MICRON_WBST_165			0x0
+#define MICRON_V_MR_165			((MICRON_WBST_165 << 9) | \
+		(MICRON_CASL_165 << 4) | (MICRON_SIL_165 << 3) | \
+		(MICRON_BL_165))
+
+/* Micron part (200MHz optimized) 5 ns */
+#define MICRON_TDAL_200		6
+#define MICRON_TDPL_200		3
+#define MICRON_TRRD_200		2
+#define MICRON_TRCD_200		3
+#define MICRON_TRP_200		3
+#define MICRON_TRAS_200		8
+#define MICRON_TRC_200		11
+#define MICRON_TRFC_200		15
+#define MICRON_V_ACTIMA_200	((MICRON_TRFC_200 << 27) | \
+		(MICRON_TRC_200 << 22) | (MICRON_TRAS_200 << 18) | \
+		(MICRON_TRP_200 << 15) | (MICRON_TRCD_200 << 12) | \
+		(MICRON_TRRD_200 << 9) | (MICRON_TDPL_200 << 6) | \
+		(MICRON_TDAL_200))
+
+#define MICRON_TWTR_200		2
+#define MICRON_TCKE_200		4
+#define MICRON_TXP_200		2
+#define MICRON_XSR_200		23
+#define MICRON_V_ACTIMB_200	((MICRON_TCKE_200 << 12) | \
+		(MICRON_XSR_200 << 0) | (MICRON_TXP_200 << 8) | \
+		(MICRON_TWTR_200 << 16))
+
 /*
  * NUMONYX part of IGEP v2 (165MHz optimized) 6.06ns
  *   ACTIMA
@@ -166,23 +258,6 @@ enum {
 #define NUMONYX_V_ACTIMB_165 ((NUMONYX_TCKE_165 << 12) | \
 		(NUMONYX_XSR_165 << 0) | (NUMONYX_TXP_165 << 8) | \
 		(NUMONYX_TWTR_165 << 16))
-
-#ifdef CONFIG_OMAP3_INFINEON_DDR
-#define V_ACTIMA_165 INFINEON_V_ACTIMA_165
-#define V_ACTIMB_165 INFINEON_V_ACTIMB_165
-#endif
-#ifdef CONFIG_OMAP3_MICRON_DDR
-#define V_ACTIMA_165 MICRON_V_ACTIMA_165
-#define V_ACTIMB_165 MICRON_V_ACTIMB_165
-#endif
-#ifdef CONFIG_OMAP3_NUMONYX_DDR
-#define V_ACTIMA_165 NUMONYX_V_ACTIMA_165
-#define V_ACTIMB_165 NUMONYX_V_ACTIMB_165
-#endif
-
-#if !defined(V_ACTIMA_165) || !defined(V_ACTIMB_165)
-#error "Please choose the right DDR type in config header"
-#endif
 
 /*
  * GPMC settings -
@@ -242,12 +317,15 @@ enum {
 #define M_NAND_GPMC_CONFIG6	0x1f0f0A80
 #define M_NAND_GPMC_CONFIG7	0x00000C44
 
-#define STNOR_GPMC_CONFIG1	0x3
-#define STNOR_GPMC_CONFIG2	0x00151501
-#define STNOR_GPMC_CONFIG3	0x00060602
-#define STNOR_GPMC_CONFIG4	0x11091109
-#define STNOR_GPMC_CONFIG5	0x01141F1F
-#define STNOR_GPMC_CONFIG6	0x000004c4
+/*
+ * Configuration required for AM3517EVM PC28F640P30B85 Flash
+ */
+#define STNOR_GPMC_CONFIG1	0x00001210
+#define STNOR_GPMC_CONFIG2	0x00101001
+#define STNOR_GPMC_CONFIG3	0x00020201
+#define STNOR_GPMC_CONFIG4	0x0f031003
+#define STNOR_GPMC_CONFIG5	0x000f1111
+#define STNOR_GPMC_CONFIG6	0x0f030080
 
 #define SIBNOR_GPMC_CONFIG1	0x1200
 #define SIBNOR_GPMC_CONFIG2	0x001f1f00

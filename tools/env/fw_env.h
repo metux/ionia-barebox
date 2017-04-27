@@ -29,9 +29,11 @@
  */
 #define CONFIG_FILE     "/etc/fw_env.config"
 
-#define HAVE_REDUND /* For systems with 2 env sectors */
-#define DEVICE1_NAME      "/dev/mtd1"
-#define DEVICE2_NAME      "/dev/mtd2"
+//#define HAVE_REDUND /* For systems with 2 env sectors */
+//#define DEVICE1_NAME      "/dev/mtd1"
+//#define DEVICE2_NAME      "/dev/mtd2"
+#define DEVICE1_NAME      "/dev/mtd2"
+#define DEVICE2_NAME      "/dev/mtd7"
 #define DEVICE1_OFFSET    0x0000
 #define ENV1_SIZE         0x4000
 #define DEVICE2_OFFSET    0x0000

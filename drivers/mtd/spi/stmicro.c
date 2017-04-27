@@ -95,7 +95,7 @@ static const struct stmicro_spi_flash_params stmicro_spi_flash_table[] = {
 		.page_size = 256,
 		.pages_per_sector = 256,
 		.nr_sectors = 128,
-		.name = "M25P64",
+		.name = "M25P64/M25Q64",
 	},
 	{
 		.idcode1 = 0x14,

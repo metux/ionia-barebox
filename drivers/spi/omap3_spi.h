@@ -30,12 +30,28 @@
 #ifndef _OMAP3_SPI_H_
 #define _OMAP3_SPI_H_
 
+#if defined(CONFIG_TI816X)
+#define OMAP3_MCSPI1_BASE	0x48030100
+#define OMAP3_MCSPI_MAX_FREQ	125000000
+#elif defined(CONFIG_TI814X)
+#define OMAP3_MCSPI1_BASE	0x48030100
+#define OMAP3_MCSPI2_BASE	0x481A0000
+#define OMAP3_MCSPI3_BASE	0x481A2000
+#define OMAP3_MCSPI4_BASE	0x481A4000
+#define OMAP3_MCSPI_MAX_FREQ	125000000
+#elif defined(CONFIG_AM335X)
+#define OMAP3_MCSPI1_BASE	0x48030100
+#define OMAP3_MCSPI2_BASE	0x481A0100
+#define OMAP3_MCSPI3_BASE	0x480B8000
+#define OMAP3_MCSPI4_BASE	0x480BA000
+#define OMAP3_MCSPI_MAX_FREQ	80000000
+#else
 #define OMAP3_MCSPI1_BASE	0x48098000
+#define OMAP3_MCSPI_MAX_FREQ	48000000
 #define OMAP3_MCSPI2_BASE	0x4809A000
 #define OMAP3_MCSPI3_BASE	0x480B8000
 #define OMAP3_MCSPI4_BASE	0x480BA000
-
-#define OMAP3_MCSPI_MAX_FREQ	48000000
+#endif
 
 /* OMAP3 McSPI registers */
 struct mcspi_channel {
@@ -88,6 +104,10 @@ struct mcspi {
 #define OMAP3_MCSPI_CHCONF_IS		(1 << 18)
 #define OMAP3_MCSPI_CHCONF_TURBO	(1 << 19)
 #define OMAP3_MCSPI_CHCONF_FORCE	(1 << 20)
+#define OMAP3_MCSPI_CHCONF_TCS		(1 << 25)
+#define OMAP3_MCSPI_CHCONF_FFEW		(1 << 27)
+#define OMAP3_MCSPI_CHCONF_FFER		(1 << 28)
+
 
 #define OMAP3_MCSPI_CHSTAT_RXS		(1 << 0)
 #define OMAP3_MCSPI_CHSTAT_TXS		(1 << 1)
@@ -102,6 +122,7 @@ struct omap3_spi_slave {
 	struct mcspi *regs;
 	unsigned int freq;
 	unsigned int mode;
+	unsigned char data_lines_reversed;
 };
 
 static inline struct omap3_spi_slave *to_omap3_spi(struct spi_slave *slave)

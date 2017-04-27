@@ -26,11 +26,15 @@
 #include <asm/errno.h>
 #include <asm/arch/mem.h>
 #include <asm/arch/omap_gpmc.h>
+#include <asm/arch/omap_bch_soft.h>
 #include <linux/mtd/nand_ecc.h>
 #include <nand.h>
 
-static uint8_t cs;
+uint8_t cs;
 static struct nand_ecclayout hw_nand_oob = GPMC_NAND_HW_ECC_LAYOUT;
+#if defined(GPMC_NAND_ECC_LP_x16_LAYOUT) && !defined(CONFIG_SPL_BUILD)
+static struct nand_ecclayout hw_nand_oob_kernel = GPMC_NAND_HW_ECC_LAYOUT_KERNEL;
+#endif
 
 /*
  * omap_nand_hwcontrol - Set the address pointers corretly for the
@@ -60,6 +64,14 @@ static void omap_nand_hwcontrol(struct mtd_info *mtd, int32_t cmd,
 	if (cmd != NAND_CMD_NONE)
 		writeb(cmd, this->IO_ADDR_W);
 }
+
+#ifdef CONFIG_SPL_BUILD
+/* Check wait pin as dev ready indicator */
+int omap_spl_dev_ready(struct mtd_info *mtd)
+{
+	return gpmc_cfg->status & (1 << 8);
+}
+#endif
 
 /*
  * omap_hwecc_init - Initialize the Hardware ECC for NAND flash in
@@ -148,7 +160,9 @@ static int omap_correct_data(struct mtd_info *mtd, uint8_t *dat,
 			 */
 			if ((orig_ecc == 0x0FFF0FFF) && (new_ecc == 0x00000000))
 				return 0;
-			printf("Error: Bad compare! failed\n");
+			printf("omap_gpmc.c: Error: Bad compare! failed\n");
+			printf("orig_ecc: %08x\n",orig_ecc);
+			printf("new_ecc:  %08x\n",new_ecc);
 			/* detected 2 bit error */
 			return -1;
 		}
@@ -224,23 +238,25 @@ static void omap_enable_hwecc(struct mtd_info *mtd, int32_t mode)
 	}
 }
 
+#ifndef CONFIG_SPL_BUILD
 /*
  * omap_nand_switch_ecc - switch the ECC operation b/w h/w ecc and s/w ecc.
  * The default is to come up on s/w ecc
  *
- * @hardware - 1 -switch to h/w ecc, 0 - s/w ecc
- *
+ * @hardware - 1 -switch to 1-bit h/w ecc (kernel/FS layout), 
+ *			   2 -switch to 1-bit h/w ecc (xloader/uboot layout)
+ *			   (0 -default value)
  */
-void omap_nand_switch_ecc(int32_t hardware)
+void omap_nand_switch_ecc(nand_ecc_modes_t mode, int32_t hardware)
 {
 	struct nand_chip *nand;
 	struct mtd_info *mtd;
+	uint32_t dev_width;
 
 	if (nand_curr_device < 0 ||
-	    nand_curr_device >= CONFIG_SYS_MAX_NAND_DEVICE ||
-	    !nand_info[nand_curr_device].name) {
-		printf("Error: Can't switch ecc, no devices available\n");
-		return;
+		nand_curr_device >= CONFIG_SYS_MAX_NAND_DEVICE) {
+			printf("Error: Can't switch ecc, no devices available\n");
+			return;
 	}
 
 	mtd = &nand_info[nand_curr_device];
@@ -257,29 +273,68 @@ void omap_nand_switch_ecc(int32_t hardware)
 	nand->ecc.correct = NULL;
 	nand->ecc.calculate = NULL;
 
-	/* Setup the ecc configurations again */
-	if (hardware) {
+	dev_width = (nand->options & NAND_BUSWIDTH_16) >> 1;
+
+	switch(mode)
+	  {
+	  case NAND_ECC_HW:
 		nand->ecc.mode = NAND_ECC_HW;
+#ifdef GPMC_NAND_ECC_LP_x16_LAYOUT
+		nand->ecc.layout = (hardware == 1) ? &hw_nand_oob_kernel : &hw_nand_oob;
+#else
 		nand->ecc.layout = &hw_nand_oob;
+#endif
+		nand->ecc.hwctl = omap_enable_hwecc;
 		nand->ecc.size = 512;
 		nand->ecc.bytes = 3;
-		nand->ecc.hwctl = omap_enable_hwecc;
 		nand->ecc.correct = omap_correct_data;
 		nand->ecc.calculate = omap_calculate_ecc;
 		omap_hwecc_init(nand);
+#ifdef GPMC_NAND_ECC_LP_x16_LAYOUT
+		printf("HW ECC [%s layout] selected\n",(hardware == 1) ? "Kernel/FS" : "X-loader/U-boot");
+#else
 		printf("HW ECC selected\n");
-	} else {
+#endif
+		break;
+	  case NAND_ECC_SOFT:
 		nand->ecc.mode = NAND_ECC_SOFT;
 		/* Use mtd default settings */
 		nand->ecc.layout = NULL;
 		printf("SW ECC selected\n");
-	}
+		break;
+	  case NAND_ECC_4BIT_SOFT:
+		nand->ecc.mode = mode;
+		nand->ecc.layout = omap_get_ecc_layout_bch(dev_width, 4);
+		nand->ecc.hwctl = omap_enable_hwecc_bch4;
+		nand->ecc.size = 2048;
+		nand->ecc.bytes = 28;
+		nand->ecc.calculate = omap_calculate_ecc_bch4;
+		nand->ecc.correct = omap_correct_data_bch4;
+		omap_hwecc_init_bch(nand);
+		printf("4 BIT SW ECC selected\n");
+		break;
+	  case NAND_ECC_8BIT_SOFT:
+		nand->ecc.mode = mode;
+		nand->ecc.layout = omap_get_ecc_layout_bch(dev_width, 8);
+		nand->ecc.hwctl = omap_enable_hwecc_bch8;
+		nand->ecc.size = 2048;
+		nand->ecc.bytes = 52;
+		nand->ecc.calculate = omap_calculate_ecc_bch8;
+		nand->ecc.correct = omap_correct_data_bch8;
+		omap_hwecc_init_bch(nand);
+		printf("8 BIT SW ECC selected\n");
+		break;
+	  default:
+		printf("Error: Unsupported ECC switch\n");
+		return;
+	  }
 
 	/* Update NAND handling after ECC mode switch */
 	nand_scan_tail(mtd);
 
 	nand->options &= ~NAND_OWN_BUFFERS;
 }
+#endif /* CONFIG_SPL_BUILD */
 
 /*
  * Board-specific NAND initialization. The following members of the
@@ -309,17 +364,17 @@ int board_nand_init(struct nand_chip *nand)
 	 * devices.
 	 */
 	while (cs < GPMC_MAX_CS) {
-		/* Check if NAND type is set */
-		if ((readl(&gpmc_cfg->cs[cs].config1) & 0xC00) == 0x800) {
-			/* Found it!! */
-			break;
-		}
-		cs++;
+	  /* Check if NAND type is set */
+	  if ((readl(&gpmc_cfg->cs[cs].config1) & 0xC00) == 0x800) {
+	    /* Found it!! */
+	    break;
+	  }
+	  cs++;
 	}
 	if (cs >= GPMC_MAX_CS) {
-		printf("NAND: Unable to find NAND settings in "
-			"GPMC Configuration - quitting\n");
-		return -ENODEV;
+	  printf("NAND: Unable to find NAND settings in "
+	    "GPMC Configuration - quitting\n");
+	  return -ENODEV;
 	}
 
 	gpmc_config = readl(&gpmc_cfg->config);
@@ -334,11 +389,35 @@ int board_nand_init(struct nand_chip *nand)
 	nand->options = NAND_NO_PADDING | NAND_CACHEPRG | NAND_NO_AUTOINCR;
 	/* If we are 16 bit dev, our gpmc config tells us that */
 	if ((readl(&gpmc_cfg->cs[cs].config1) & 0x3000) == 0x1000)
-		nand->options |= NAND_BUSWIDTH_16;
+	  nand->options |= NAND_BUSWIDTH_16;
 
+	/* fallback ecc info, this will be overridden by
+	 * ti81xx_nand_switch_ecc() below to 1-bit h/w ecc
+	 */
 	nand->chip_delay = 100;
 	/* Default ECC mode */
-	nand->ecc.mode = NAND_ECC_SOFT;
+#ifndef CONFIG_SPL_BUILD
+	nand->ecc.mode = NAND_ECC_4BIT_SOFT;
+
+	/* Making 1-bit hw ecc (kernel/FS layout) as default ecc scheme */
+	nand_curr_device = 0;
+	omap_nand_switch_ecc(NAND_ECC_HW, 1);
+#else
+	nand->ecc.mode = NAND_ECC_HW;
+	nand->ecc.layout = &hw_nand_oob;
+	nand->ecc.size = CONFIG_SYS_NAND_ECCSIZE;
+	nand->ecc.bytes = CONFIG_SYS_NAND_ECCBYTES;
+	nand->ecc.hwctl = omap_enable_hwecc;
+	nand->ecc.correct = omap_correct_data;
+	nand->ecc.calculate = omap_calculate_ecc;
+	omap_hwecc_init(nand);
+
+	if (nand->options & NAND_BUSWIDTH_16)
+		nand->read_buf = nand_read_buf16;
+	else
+		nand->read_buf = nand_read_buf;
+	nand->dev_ready = omap_spl_dev_ready;
+#endif
 
 	return 0;
 }

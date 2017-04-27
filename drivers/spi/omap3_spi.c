@@ -86,6 +86,7 @@ struct spi_slave *spi_setup_slave(unsigned int bus, unsigned int cs,
 	case 0:
 		ds->regs = (struct mcspi *)OMAP3_MCSPI1_BASE;
 		break;
+#if !defined CONFIG_TI81XX || defined CONFIG_AM335X
 	case 1:
 		ds->regs = (struct mcspi *)OMAP3_MCSPI2_BASE;
 		break;
@@ -95,6 +96,7 @@ struct spi_slave *spi_setup_slave(unsigned int bus, unsigned int cs,
 	case 3:
 		ds->regs = (struct mcspi *)OMAP3_MCSPI4_BASE;
 		break;
+#endif
 	default:
 		printf("SPI error: unsupported bus %i. \
 			Supported busses 0 - 3\n", bus);
@@ -102,10 +104,21 @@ struct spi_slave *spi_setup_slave(unsigned int bus, unsigned int cs,
 	}
 	ds->slave.bus = bus;
 
+	ds->data_lines_reversed = 0;
+#ifdef CONFIG_TI81XX
+#ifndef CONFIG_AM335X
+	if ((bus == 0) && (cs > 3)) {
+		ds->data_lines_reversed = 1;
+#else
+	if (((bus == 0) && (cs > 1))
+			|| ((bus == 1) && (cs > 1))) {
+#endif
+#else
 	if (((bus == 0) && (cs > 3)) ||
 			((bus == 1) && (cs > 1)) ||
 			((bus == 2) && (cs > 1)) ||
 			((bus == 3) && (cs > 0))) {
+#endif
 		printf("SPI error: unsupported chip select %i \
 			on bus %i\n", cs, bus);
 		return NULL;
@@ -114,7 +127,8 @@ struct spi_slave *spi_setup_slave(unsigned int bus, unsigned int cs,
 
 	if (max_hz > OMAP3_MCSPI_MAX_FREQ) {
 		printf("SPI error: unsupported frequency %i Hz. \
-			Max frequency is 48 Mhz\n", max_hz);
+			Max frequency is %d Mhz\n", max_hz,
+			(OMAP3_MCSPI_MAX_FREQ/1000/1000));
 		return NULL;
 	}
 	ds->freq = max_hz;
@@ -164,11 +178,20 @@ int spi_claim_bus(struct spi_slave *slave)
 
 	conf = readl(&ds->regs->channel[ds->slave.cs].chconf);
 
-	/* standard 4-wire master mode:	SCK, MOSI/out, MISO/in, nCS
+	/* channel defaults - 1.5 clock TCS and FIFO mode for TX/RX */
+	conf |= OMAP3_MCSPI_CHCONF_TCS | OMAP3_MCSPI_CHCONF_FFEW |
+			OMAP3_MCSPI_CHCONF_FFER;
+
+	/* standard 4-wire master mode:  SCK, MOSI/out, MISO/in, nCS
 	 * REVISIT: this controller could support SPI_3WIRE mode.
 	 */
-	conf &= ~(OMAP3_MCSPI_CHCONF_IS|OMAP3_MCSPI_CHCONF_DPE1);
-	conf |= OMAP3_MCSPI_CHCONF_DPE0;
+	if (!ds->data_lines_reversed) {
+		conf &= ~(OMAP3_MCSPI_CHCONF_IS|OMAP3_MCSPI_CHCONF_DPE1);
+		conf |= OMAP3_MCSPI_CHCONF_DPE0;
+	} else {
+		conf &= ~OMAP3_MCSPI_CHCONF_DPE0;
+		conf |= (OMAP3_MCSPI_CHCONF_IS|OMAP3_MCSPI_CHCONF_DPE1);
+	}
 
 	/* wordlength */
 	conf &= ~OMAP3_MCSPI_CHCONF_WL_MASK;
@@ -239,6 +262,13 @@ int omap3_spi_write(struct spi_slave *slave, unsigned int len, const u8 *txp,
 		}
 		/* Write the data */
 		writel(txp[i], &ds->regs->channel[ds->slave.cs].tx);
+        /*printf("*txp=0x%02x\n",txp[i]);*/
+        {/*TODO Possible workaround for timing violation in SPI write protocol, check! */
+         /*Possible problem when cache is active. Check!*/
+            volatile int i = 0;
+            for (i=0; i<150;i++)
+                ;
+        }
 	}
 
 	if (flags & SPI_XFER_END) {

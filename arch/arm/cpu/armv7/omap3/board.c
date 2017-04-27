@@ -39,6 +39,8 @@
 #include <asm/cache.h>
 #include <asm/armv7.h>
 #include <asm/arch/gpio.h>
+#include <asm/omap_common.h>
+#include <linux/mtd/nand.h>
 
 /* Declarations */
 extern omap3_sysinfo sysinfo;
@@ -55,6 +57,41 @@ static const struct gpio_bank gpio_bank_34xx[6] = {
 };
 
 const struct gpio_bank *const omap_gpio_bank = gpio_bank_34xx;
+
+#ifdef CONFIG_SPL_BUILD
+/*
+* We use static variables because global data is not ready yet.
+* Initialized data is available in SPL right from the beginning.
+* We would not typically need to save these parameters in regular
+* U-Boot. This is needed only in SPL at the moment.
+*/
+u32 omap3_boot_device = BOOT_DEVICE_NAND;
+
+/* auto boot mode detection is not possible for OMAP3 - hard code */
+u32 omap_boot_mode(void)
+{
+	switch (omap_boot_device()) {
+	case BOOT_DEVICE_MMC2:
+		return MMCSD_MODE_RAW;
+	case BOOT_DEVICE_MMC1:
+		return MMCSD_MODE_FAT;
+		break;
+	case BOOT_DEVICE_NAND:
+		return NAND_MODE_HW_ECC;
+		break;
+	default:
+		puts("spl: ERROR:  unknown device - can't select boot mode\n");
+		hang();
+	}
+}
+
+u32 omap_boot_device(void)
+{
+	return omap3_boot_device;
+}
+
+#endif /* CONFIG_SPL_BUILD */
+
 
 /******************************************************************************
  * Routine: delay
@@ -197,6 +234,10 @@ void s_init(void)
 
 	per_clocks_enable();
 
+#ifdef CONFIG_SPL_BUILD
+	preloader_console_init();
+#endif
+
 	if (!in_sdram)
 		mem_init();
 }
@@ -245,18 +286,26 @@ void abort(void)
 {
 }
 
-#ifdef CONFIG_NAND_OMAP_GPMC
+#if defined(CONFIG_NAND_OMAP_GPMC) & !defined(CONFIG_SPL_BUILD)
 /******************************************************************************
  * OMAP3 specific command to switch between NAND HW and SW ecc
  *****************************************************************************/
 static int do_switch_ecc(cmd_tbl_t * cmdtp, int flag, int argc, char * const argv[])
 {
-	if (argc != 2)
+	if (argc < 2)
 		goto usage;
-	if (strncmp(argv[1], "hw", 2) == 0)
-		omap_nand_switch_ecc(1);
+	if (strncmp(argv[1], "hw", 2) == 0) {
+		int type = 1;
+                if (argc == 3)
+                        type = simple_strtoul(argv[2], NULL, 10);
+		omap_nand_switch_ecc(NAND_ECC_HW, type);
+	}
 	else if (strncmp(argv[1], "sw", 2) == 0)
-		omap_nand_switch_ecc(0);
+		omap_nand_switch_ecc(NAND_ECC_SOFT, 0);
+	else if (strncmp(argv[1], "bch4_sw", 7) == 0)
+		omap_nand_switch_ecc(NAND_ECC_4BIT_SOFT, 0);
+	else if (strncmp(argv[1], "bch8_sw", 7) == 0)
+		omap_nand_switch_ecc(NAND_ECC_8BIT_SOFT, 0);
 	else
 		goto usage;
 
@@ -268,12 +317,15 @@ usage:
 }
 
 U_BOOT_CMD(
-	nandecc, 2, 1,	do_switch_ecc,
+	nandecc, 3, 1,	do_switch_ecc,
 	"switch OMAP3 NAND ECC calculation algorithm",
-	"[hw/sw] - Switch between NAND hardware (hw) or software (sw) ecc algorithm"
+	"[hw 1/hw 2/sw/bch4_sw/bch8_sw] - Switch between NAND hardware for \
+kernel/FS layout (hw 1), hardware for xloader/uboot layout (hw 2), \
+1-bit software (sw), 4-bit software (bch4_sw), or 8-bit software \
+(bch8_sw) ecc algorithm"
 );
 
-#endif /* CONFIG_NAND_OMAP_GPMC */
+#endif /* CONFIG_NAND_OMAP_GPMC & !CONFIG_SPL_BUILD */
 
 #ifdef CONFIG_DISPLAY_BOARDINFO
 /**

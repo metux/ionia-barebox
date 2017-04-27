@@ -46,7 +46,15 @@ LIBS-$(CONFIG_SPL_SPI_FLASH_SUPPORT) += drivers/mtd/spi/libspi_flash.o
 LIBS-$(CONFIG_SPL_SPI_SUPPORT) += drivers/spi/libspi.o
 LIBS-$(CONFIG_SPL_FAT_SUPPORT) += fs/fat/libfat.o
 LIBS-$(CONFIG_SPL_LIBGENERIC_SUPPORT) += lib/libgeneric.o
+LIBS-$(CONFIG_SPL_POWER_SUPPORT) += drivers/power/libpower.o
+LIBS-$(CONFIG_SPL_NAND_SUPPORT) += drivers/mtd/nand/libnand.o
+LIBS-$(CONFIG_SPL_NET_SUPPORT) += net/libnet.o
+LIBS-$(CONFIG_SPL_ETH_SUPPORT) += drivers/net/libnet.o
+LIBS-$(CONFIG_SPL_ETH_SUPPORT) += drivers/net/phy/libphy.o
 
+ifeq ($(SOC),ti81xx)
+LIBS-y += $(CPUDIR)/omap-common/libomap-common.o
+endif
 ifeq ($(SOC),omap3)
 LIBS-y += $(CPUDIR)/omap-common/libomap-common.o
 endif
@@ -90,6 +98,15 @@ $(OBJTREE)/MLO:	$(obj)u-boot-spl.bin
 	$(OBJTREE)/tools/mkimage -T omapimage \
 		-a $(CONFIG_SPL_TEXT_BASE) -d $< $@
 endif
+ifdef CONFIG_TI81XX
+$(OBJTREE)/MLO:	$(obj)u-boot-spl.bin
+	$(OBJTREE)/tools/mkimage -T omapimage \
+		-a $(CONFIG_SPL_TEXT_BASE) -d $< $@
+
+$(OBJTREE)/MLO.spi: $(obj)u-boot-spl.bin
+	$(OBJTREE)/tools/mkimage -T omapimage -n byteswap-spi \
+		-a $(CONFIG_SPL_TEXT_BASE) -d $< $@
+endif
 
 ALL-y	+= $(obj)u-boot-spl.bin
 
@@ -109,9 +126,7 @@ $(obj)u-boot-spl.bin:	$(obj)u-boot-spl
 	$(OBJCOPY) $(OBJCFLAGS) -O binary $< $@
 
 GEN_UBOOT = \
-	UNDEF_SYM=`$(OBJDUMP) -x $(LIBS) | \
-	sed  -n -e 's/.*\($(SYM_PREFIX)__u_boot_cmd_.*\)/-u\1/p'|sort|uniq`;\
-	cd $(obj) && $(LD) $(LDFLAGS) $(LDFLAGS_$(@F)) $$UNDEF_SYM $(__START) \
+	cd $(obj) && $(LD) $(LDFLAGS) $(LDFLAGS_$(@F)) $(__START) \
 		--start-group $(__LIBS) --end-group $(PLATFORM_LIBS) \
 		-Map u-boot-spl.map -o u-boot-spl
 

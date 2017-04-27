@@ -87,7 +87,7 @@ void nand_init(void)
 		if (nand_curr_device == -1)
 			nand_curr_device = i;
 	}
-	printf("%u MiB\n", size / 1024);
+	printf("nand_init: %u MiB\n", size / 1024);
 
 #ifdef CONFIG_SYS_NAND_SELECT_DEVICE
 	/*

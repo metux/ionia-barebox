@@ -219,13 +219,15 @@ static inline int abortboot(int bootdelay)
 	 */
 	if (bootdelay >= 0) {
 		if (tstc()) {	/* we got a key press	*/
-			(void) getc();  /* consume input	*/
+            int key_pressed = 0;
+			key_pressed = getc();  /* consume input	*/
 			puts ("\b\b\b 0");
+            printf("Key pressed: %c.\n", (key_pressed >= 0 && key_pressed <= 255) ? (char) key_pressed :"?");
 			abort = 1;	/* don't auto boot	*/
 		}
 	}
 #endif
-
+    int key_pressed = 0;
 	while ((bootdelay > 0) && (!abort)) {
 		int i;
 
@@ -238,17 +240,23 @@ static inline int abortboot(int bootdelay)
 # ifdef CONFIG_MENUKEY
 				menukey = getc();
 # else
-				(void) getc();  /* consume input	*/
+				key_pressed = getc();  /* consume input	*/
 # endif
 				break;
 			}
 			udelay(10000);
 		}
-
 		printf("\b\b\b%2d ", bootdelay);
 	}
 
 	putc('\n');
+# ifdef CONFIG_MENUKEY
+    if (abort == 1)
+        printf("Key pressed: %c.\n", menukey);
+# else
+    if (abort == 1)
+        printf("Key pressed: %c.\n", key_pressed);
+# endif
 
 #ifdef CONFIG_SILENT_CONSOLE
 	if (abort)
@@ -264,6 +272,18 @@ static inline int abortboot(int bootdelay)
 
 void main_loop (void)
 {
+    // Workaround for: Sometimes a key press is detected from U-Boot, that did not occurr --> Booting stops sometimes, therefor flush buffer
+    int flushed = 0;
+    int detectedChar=0;
+
+	while (tstc())
+    {	/* we got a key press	*/
+		detectedChar = getc();  /* consume input */
+        flushed = 1;
+    }
+    if (flushed)
+        printf("UART buffer flushed, last char: %c\n", detectedChar);
+        
 #ifndef CONFIG_SYS_HUSH_PARSER
 	static char lastcommand[CONFIG_SYS_CBSIZE] = { 0, };
 	int len;
@@ -1349,7 +1369,7 @@ int run_command (const char *cmd, int flag)
 			continue;
 		}
 
-#if defined(CONFIG_CMD_BOOTD)
+#if defined(CONFIG_CMD_BOOTD) && !defined(CONFIG_SPL_BUILD)
 		/* avoid "bootd" recursion */
 		if (cmdtp->cmd == do_bootd) {
 #ifdef DEBUG_PARSER
@@ -1397,7 +1417,7 @@ int do_run (cmd_tbl_t * cmdtp, int flag, int argc, char * const argv[])
 			printf ("## Error: \"%s\" not defined\n", argv[i]);
 			return 1;
 		}
-#ifndef CONFIG_SYS_HUSH_PARSER
+#if !defined(CONFIG_SYS_HUSH_PARSER) || defined(CONFIG_SPL_BUILD)
 		if (run_command (arg, flag) == -1)
 			return 1;
 #else

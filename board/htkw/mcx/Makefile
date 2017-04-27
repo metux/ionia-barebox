@@ -1,10 +1,7 @@
 #
-# Author: Vaibhav Hiremath <hvaibhav@ti.com>
+# Copyright (C) 2011 Ilya Yanok, Emcraft Systems
 #
-# Based on ti/evm/config.mk
-#
-# Copyright (C) 2010
-# Texas Instruments Incorporated - http://www.ti.com/
+# Based on ti/evm/Makefile
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,13 +15,24 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+# Foundation, Inc.
 #
-# Physical Address:
-# 8000'0000 (bank0)
-# A000/0000 (bank1)
-# Linux-Kernel is expected to be at 8000'8000, entry 8000'8000
-# (mem base + reserved)
 
-# For use with external or internal boots.
-CONFIG_SYS_TEXT_BASE = 0x80008000
+include $(TOPDIR)/config.mk
+
+LIB	= $(obj)lib$(BOARD).o
+
+COBJS	:= $(BOARD).o
+
+SRCS	:= $(COBJS:.o=.c)
+OBJS	:= $(addprefix $(obj),$(COBJS))
+
+$(LIB):	$(obj).depend $(OBJS)
+	$(call cmd_link_o_target, $(OBJS))
+
+#########################################################################
+
+# defines $(obj).depend target
+include $(SRCTREE)/rules.mk
+
+sinclude $(obj).depend

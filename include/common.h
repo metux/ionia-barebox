@@ -117,7 +117,7 @@ typedef volatile unsigned char	vu_char;
 #include <image.h>
 
 #ifdef	DEBUG
-#define debug(fmt,args...)	printf (fmt ,##args)
+#define debug(fmt,args...)	printf (fmt ,##args) /* Maybe prevent booting in u-boot-spl */
 #define debugX(level,fmt,args...) if (DEBUG>=level) printf(fmt,##args);
 #else
 #define debug(fmt,args...)

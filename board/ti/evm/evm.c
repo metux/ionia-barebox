@@ -1,5 +1,5 @@
 /*
- * (C) Copyright 2004-2008
+ * (C) Copyright 2004-2011
  * Texas Instruments, <www.ti.com>
  *
  * Author :
@@ -37,7 +37,9 @@
 #include <asm/gpio.h>
 #include <i2c.h>
 #include <asm/mach-types.h>
+#include <linux/mtd/nand.h>
 #include "evm.h"
+#include <twl4030.h>
 
 #define OMAP3EVM_GPIO_ETH_RST_GEN1		64
 #define OMAP3EVM_GPIO_ETH_RST_GEN2		7
@@ -119,6 +121,43 @@ int board_init(void)
 	return 0;
 }
 
+#ifdef CONFIG_SPL_BUILD
+/*
+ * Routine: get_board_mem_timings
+ * Description: If we use SPL then there is no x-loader nor config header
+ * so we have to setup the DDR timings ourself on the first bank.  This
+ * provides the timing values back to the function that configures
+ * the memory.
+ */
+void get_board_mem_timings(u32 *mcfg, u32 *ctrla, u32 *ctrlb, u32 *rfr_ctrl,
+		u32 *mr)
+{
+	int pop_mfr, pop_id;
+
+	/*
+	 * We need to identify what PoP memory is on the board so that
+	 * we know what timings to use.
+	 */
+	identify_nand_chip(&pop_mfr, &pop_id);
+
+	if (pop_mfr == NAND_MFR_HYNIX && pop_id == 0xbc) {
+		*ctrla = HYNIX_V_ACTIMA_200;
+		*ctrlb = HYNIX_V_ACTIMB_200;
+		*mcfg = 0x03588099;
+	} else {
+		*ctrla = MICRON_V_ACTIMA_165;
+		*ctrlb = MICRON_V_ACTIMB_165;
+		/*
+		 * MICRON_V_MCFG_165 would be correct here except that
+		 * we have 128MB not PHYS_SDRAM_1_SIZE (32MB)
+		 */
+		*mcfg = 0x02584099;
+	}
+	*rfr_ctrl = SDP_3430_SDRC_RFR_CTRL_165MHz;
+	*mr = MICRON_V_MR_165;
+}
+#endif
+
 /*
  * Routine: misc_init_r
  * Description: Init ethernet (done here so udelay works)
@@ -140,6 +179,10 @@ int misc_init_r(void)
 #endif
 	dieid_num_r();
 
+        if (get_cpu_family() == CPU_OMAP36XX) {
+   		twl4030_power_mpu_init();
+	        set_mpu_clk(1000);
+	}
 	return 0;
 }
 
@@ -217,13 +260,28 @@ int board_eth_init(bd_t *bis)
 {
 	int rc = 0;
 #ifdef CONFIG_SMC911X
+#define STR_ENV_ETHADDR	"ethaddr"
+
+	struct eth_device *dev;
+	uchar eth_addr[6];
+
 	rc = smc911x_initialize(0, CONFIG_SMC911X_BASE);
+
+	if (!eth_getenv_enetaddr(STR_ENV_ETHADDR, eth_addr)) {
+		dev = eth_get_dev_by_index(0);
+		if (dev) {
+			eth_setenv_enetaddr(STR_ENV_ETHADDR, dev->enetaddr);
+		} else {
+			printf("omap3evm: Couldn't get eth device\n");
+			rc = -1;
+		}
+	}
 #endif
 	return rc;
 }
 #endif /* CONFIG_CMD_NET */
 
-#ifdef CONFIG_GENERIC_MMC
+#if defined(CONFIG_GENERIC_MMC) && !defined(CONFIG_SPL_BUILD)
 int board_mmc_init(bd_t *bis)
 {
 	omap_mmc_init(0);

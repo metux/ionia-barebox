@@ -175,7 +175,17 @@ COBJS-$(CONFIG_UPDATE_TFTP) += update.o
 COBJS-$(CONFIG_USB_KEYBOARD) += usb_kbd.o
 endif
 
+ifdef CONFIG_SPL_BUILD
+COBJS-$(CONFIG_SPL_YMODEM_SUPPORT) += xyzModem.o
+COBJS-$(CONFIG_SPL_NET_SUPPORT) += cmd_nvedit.o
+COBJS-$(CONFIG_SPL_NET_SUPPORT) += command.o
+COBJS-$(CONFIG_SPL_NET_SUPPORT) += env_common.o
+COBJS-$(CONFIG_SPL_NET_SUPPORT) += env_nowhere.o
+COBJS-$(CONFIG_SPL_NET_SUPPORT) += main.o
+COBJS-$(CONFIG_SPL_NET_SUPPORT) += miiphyutil.o
+endif
 COBJS-y += console.o
+COBJS-y += dlmalloc.o
 COBJS-y += memsize.o
 COBJS-y += stdio.o
 

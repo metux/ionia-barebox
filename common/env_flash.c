@@ -144,6 +144,7 @@ int saveenv(void)
 		(ulong)flash_addr, end_addr);
 
 	if (flash_sect_protect(0, (ulong)flash_addr, end_addr)) {
+        puts ("failed\n");
 		goto done;
 	}
 
@@ -151,6 +152,7 @@ int saveenv(void)
 		(ulong)flash_addr_new, end_addr_new);
 
 	if (flash_sect_protect(0, (ulong)flash_addr_new, end_addr_new)) {
+        puts ("failed\n");
 		goto done;
 	}
 
@@ -184,6 +186,7 @@ int saveenv(void)
 		(ulong)flash_addr_new, end_addr_new);
 
 	if (flash_sect_erase((ulong)flash_addr_new, end_addr_new)) {
+        puts ("failed\n");
 		goto done;
 	}
 
@@ -198,6 +201,7 @@ int saveenv(void)
 			(ulong)&(flash_addr->flags),
 			sizeof(flash_addr->flags))) ) {
 		flash_perror(rc);
+        puts ("failed\n");
 		goto done;
 	}
 
@@ -209,6 +213,7 @@ int saveenv(void)
 				(long)flash_addr_new + CONFIG_ENV_SIZE,
 				up_data)) {
 			flash_perror(rc);
+            puts ("failed\n");
 			goto done;
 		}
 	}
@@ -286,7 +291,10 @@ int saveenv(void)
 		(ulong)flash_addr, end_addr);
 
 	if (flash_sect_protect(0, (long)flash_addr, end_addr))
+    {
+        puts ("failed\n");
 		goto done;
+    }
 
 	res = (char *)&env_new.data;
 	len = hexport_r(&env_htab, '\0', &res, ENV_SIZE);
@@ -298,12 +306,15 @@ int saveenv(void)
 
 	puts("Erasing Flash...");
 	if (flash_sect_erase((long)flash_addr, end_addr))
+    {
+        puts ("failed\n");
 		goto done;
-
+    }
 	puts("Writing to Flash... ");
 	rc = flash_write((char *)&env_new, (long)flash_addr, CONFIG_ENV_SIZE);
 	if (rc != 0) {
 		flash_perror(rc);
+        puts ("failed\n");
 		goto done;
 	}
 #if CONFIG_ENV_SECT_SIZE > CONFIG_ENV_SIZE
@@ -314,6 +325,7 @@ int saveenv(void)
 				(long)flash_addr + CONFIG_ENV_SIZE,
 				up_data)) {
 			flash_perror(rc);
+            puts ("failed\n");
 			goto done;
 		}
 	}

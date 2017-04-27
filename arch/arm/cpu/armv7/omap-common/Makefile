@@ -29,10 +29,29 @@ SOBJS	:= reset.o
 
 COBJS	:= timer.o
 COBJS	+= utils.o
+ifneq ($(CONFIG_AM335X)$(CONFIG_OMAP),)
 COBJS	+= gpio.o
+endif
 
 ifdef CONFIG_SPL_BUILD
 COBJS	+= spl.o
+ifdef CONFIG_SPL_NAND_SUPPORT
+COBJS	+= spl_nand.o
+endif
+ifdef CONFIG_SPL_MMC_SUPPORT
+COBJS	+= spl_mmc.o
+endif
+ifdef CONFIG_SPL_YMODEM_SUPPORT
+COBJS	+= spl_ymodem.o
+endif
+ifdef CONFIG_SPL_ETH_SUPPORT
+COBJS	+= spl_eth.o
+endif
+endif
+
+ifneq ($(CONFIG_TI81XX)$(CONFIG_OMAP44XX)$(CONFIG_OMAP54XX),)
+COBJS   += boot-common.o
+SOBJS   += lowlevel_init.o
 endif
 
 SRCS	:= $(SOBJS:.o=.S) $(COBJS:.o=.c)

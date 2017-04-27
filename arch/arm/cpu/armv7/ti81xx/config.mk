@@ -1,12 +1,10 @@
 #
-# (C) Copyright 2006
-# Texas Instruments, <www.ti.com>
-#
-# Beagle Board uses OMAP3 (ARM-CortexA8) cpu
-# see http://www.ti.com/ for more information on Texas Instruments
-#
+# Copyright 2011 Linaro Limited
 # See file CREDITS for list of people who contributed to this
 # project.
+#
+# (C) Copyright 2010
+# Texas Instruments, <www.ti.com>
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License as
@@ -23,11 +21,9 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston,
 # MA 02111-1307 USA
 #
-# Physical Address:
-# 8000'0000 (bank0)
-# A000/0000 (bank1)
-# Linux-Kernel is expected to be at 8000'8000, entry 8000'8000
-# (mem base + reserved)
-
-# For use with external or internal boots.
-CONFIG_SYS_TEXT_BASE = 0x80008000
+ifdef CONFIG_SPL_BUILD
+ALL-y	+= $(OBJTREE)/MLO
+ALL-$(CONFIG_SPL_SPI_SUPPORT) += $(OBJTREE)/MLO.spi
+else
+ALL-y	+= $(obj)u-boot.img
+endif
